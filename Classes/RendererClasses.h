@@ -5,28 +5,30 @@
 
 #include <iostream>
 #include <math.h>
-#include <tools/rendererTools.h>
+#include <vector>
+#include "tools/rendererTools.h"
 
 typedef unsigned char byte;
 
-// Color Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? Color Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
 
 class Color
 {
 public:
-    Color(byte _r = 255, byte _g = 255, byte _b = 255)
-    {
+    Color(byte _r = 255, byte _g = 255, byte _b = 255){
         r = _r;
         g = _g;
         b = _b;
     }
     ~Color() {}
 
-    byte r;
-    byte g;
-    byte b;
+    byte r; // red (max 255)
+    byte g; // green (max 255)
+    byte b; // blue (max 255)
 
-    void print()
+    void print() // writes the color out result: (r: red, g: green, b: blue)
     {
         std::cout << "(r:" << (int)r << ", g:" << (int)g << ", b:" << (int)b << ")" << std::endl;
     }
@@ -34,29 +36,35 @@ public:
 private:
 };
 
-// Ray Class
+typedef std::vector<std::vector<Color>> picture; // a 2d vector of color Values
+
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? Ray Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
 
 class Ray
 {
 public:
-    Ray(Vector3 _op, Vector3 _a)
-    {
+    Ray(Vector3 _op, Vector3 _a){
         op = _op;
         a = _a;
     }
     ~Ray() {}
 
-    Vector3 op;
-    Vector3 a;
+    Vector3 op; // origin Point of the Ray
+    Vector3 a; // direction Vector of the Ray
 
-    Vector3 calc(float t) {
+    Vector3 calc(float t) { // returns a Point on the Ray for the parameter t
         return Vector3(op.x + t * a.x, op.y + t * a.y, op.z + t * a.z);
     }
 
 private:
 };
 
-// intersection Data class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? intersection data Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+
 class intersectionData
 {
 public:
@@ -67,18 +75,19 @@ public:
     }
     ~intersectionData() {}
 
-    bool valid = false;
-    float t;
-    Vector3 point;
+    bool valid = false; // says if the intersection is valid or if there is no intersection of the two shapes
+    float t; // the t parameter of the Ray
+    Vector3 point; // the intersection point
 };
 
-// Polygon Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? Polygon Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
 
 class Polygon
 {
 public:
-    Polygon(Vector3 _op, Vector3 _a, Vector3 _b, Color _color)
-    {
+    Polygon(Vector3 _op, Vector3 _a, Vector3 _b, Color _color){
         op = _op;
         a = _a;
         b = _b;
@@ -86,15 +95,19 @@ public:
     }
     ~Polygon() {}
 
-    Vector3 op;
-    Vector3 a;
-    Vector3 b;
-    Color color;
+    Vector3 op; // the origin Point of the Polygon
+    Vector3 a; // a side of the Polygon (going out from the op Vector)
+    Vector3 b; // another side of the Polygon (going out from the op Vector)
+    Color color; // the Color of the Polygon
+    float scatter; // 0 - 1: max 0° of random scatter (so a perfect mirror) - max 90° of random scatter (aka mattness)
 
-    Vector3 calc(float t, float s) {
+    Vector3 calc(float t, float s) { // returns a point on the Plane going through the Polygon (doesn't have to be on the Polygon)
         return Vector3(op.x + t * a.x + s * b.x, op.y + t * a.y + s * b.y, op.z + t * a.z + s * b.z);
     }
-    intersectionData intersect(Ray g)
+    Vector3 normalVector() { // returns the normal Vector to this polygon
+        return scalarProd(a, b);
+    }
+    intersectionData intersect(Ray g) // intersects a Polygon with a Ray
     {
         // The intersection works by intersecting a infinit Plane and checking if it was inside the Boundries
         
@@ -148,16 +161,40 @@ public:
 private:
 };
 
-// Renderer Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? Renderer Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
 
 class Renderer
 {
 public:
-    Renderer();
-    ~Renderer();
+    Renderer(std::vector<Polygon> _polygons, Vector3 _c, Vector3 _f, int _xPixls, int _yPixls, int _splits, float _xSize) { //c is the camera Pos and f is the focal lenght and rotation of the camera
+        polygons = _polygons;
+        c = _c;
+        f = _f;
+        xPixls = _xPixls;
+        yPixls = _yPixls;
+        splits = _splits;
+        xSize = _xSize;
+        result = std::vector(_yPixls, std::vector(_xPixls, Color(255, 255, 255)));
+    }
+    ~Renderer() {}
+
+    std::vector<Polygon> polygons; // all Polygons in the scene
+
+    Vector3 c; // current position of the Camera
+    Vector3 f; // focal lenght and the direction the Camera points
+
+    int xPixls; // render x amount of pixels
+    int yPixls; // render y amount of pixels
+
+    int splits; // how many different Rays result from a reflection of a Ray
+
+    float xSize; // x size of the screen in world space
+
+    picture result; // the resulting picture of the render
 
 private:
-
 };
 
 #endif
