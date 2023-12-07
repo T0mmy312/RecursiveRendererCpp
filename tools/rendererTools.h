@@ -34,24 +34,25 @@ public:
         return ret;
     }
 
+    Vector3 operator+(Vector3 const& obj)
+    {
+        return Vector3(x + obj.x, y + obj.y, z + obj.z);
+    }
+    Vector3 operator-(Vector3 const& obj)
+    {
+        return Vector3(x - obj.x, y - obj.y, z - obj.z);
+    }
+    Vector3 operator*(float const& obj)
+    {
+        return Vector3(x * obj, y * obj, z * obj);
+    }
+    Vector3 operator/(float const& obj)
+    {
+        return Vector3(x / obj, y / obj, z / obj);
+    }
+
 private:
 };
-
-Vector3 addVec(Vector3 a, Vector3 b) {
-    return Vector3(a.x + b.x, a.y + b.y, a.z + b.z);
-}
-
-Vector3 subVec(Vector3 a, Vector3 b) {
-    return Vector3(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
-Vector3 mulVec(Vector3 a, float b) {
-    return Vector3(a.x * b, a.y * b, a.z * b);
-}
-
-Vector3 divVec(Vector3 a, float b){
-    return Vector3(a.x / b, a.y / b, a.z / b);
-}
 
 Vector3 scalarProd(Vector3 a, Vector3 b){
     return a.x * b.x + a.y * b.y + a.z * b.z;

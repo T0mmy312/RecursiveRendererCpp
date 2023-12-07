@@ -161,6 +161,8 @@ public:
 private:
 };
 
+//! Add Light Class
+
 //? ----------------------------------------------------------------------------------------------------------------------------------
 //? Renderer Class
 //? ----------------------------------------------------------------------------------------------------------------------------------
@@ -168,19 +170,22 @@ private:
 class Renderer
 {
 public:
-    Renderer(std::vector<Polygon> _polygons, Vector3 _c, Vector3 _f, int _xPixls, int _yPixls, int _splits, float _xSize) { //c is the camera Pos and f is the focal lenght and rotation of the camera
+    Renderer(std::vector<Polygon> _polygons, Vector3 _c, Vector3 _f, int _xPixls, int _yPixls, float _refraction, int _maxReflections, int _splits, float _xSize) { //c is the camera Pos and f is the focal lenght and rotation of the camera
         polygons = _polygons;
         c = _c;
         f = _f;
         xPixls = _xPixls;
         yPixls = _yPixls;
         splits = _splits;
+        refraction = _refraction;
+        maxReflections = _maxReflections;
         xSize = _xSize;
-        result = std::vector(_yPixls, std::vector(_xPixls, Color(255, 255, 255)));
+        result = std::vector(_yPixls, std::vector(_xPixls, Color(0, 0, 0)));
     }
     ~Renderer() {}
 
     std::vector<Polygon> polygons; // all Polygons in the scene
+    //! Add lights vector
 
     Vector3 c; // current position of the Camera
     Vector3 f; // focal lenght and the direction the Camera points
@@ -189,10 +194,50 @@ public:
     int yPixls; // render y amount of pixels
 
     int splits; // how many different Rays result from a reflection of a Ray
+    int refraction; // refraction of the camera Lense (0 - 1: 1 is no lense and 0 is all paralell)
+
+    int maxReflections; // maximum of bounces until it reaches a light source
 
     float xSize; // x size of the screen in world space
 
     picture result; // the resulting picture of the render
+
+    picture render() // renders the Polygons and stores the pixl values in the result var and returns that
+    {
+        // The Renderer works by casting Rays and reflecting them until they reach a Light
+
+        float pixToM = xSize / xPixls; // variable to convert pixl mesurements in global units (m)
+
+        float addX = 1; // add to x to compensate for it being odd or even
+        float addY = 1; // add to y to compensate for it being odd or even
+        if (xPixls % 2 == 0)
+            addX = 0.5f;
+        if (yPixls % 2 == 0)
+            addY = 0.5f;
+        
+        float hsx = xPixls / 2; // half of the x Pixls
+        float hsy = yPixls / 2; // half of the y Pixls
+
+        Vector3 fx; // the x Vector of the screens global position and rotation
+        if (f.x == 0 && f.y == 1 && f.y == 0)
+            fx = Vector3(1, 0, 0);
+        else
+            fx = scalarProd(f, Vector3(0, 0, 1)).normalized();
+        Vector3 fy = scalarProd(f, fx).normalized(); // the x Vector of the screens global position and rotation
+        
+        for (int y = 0; y < yPixls; y++)
+        {
+            for (int x = 0; x < xPixls; x++)
+            {
+                float lx = (x - hsx + addX) * pixToM; // lenght of fx needed to get to point
+                float ly = (y - hsy + addY) * pixToM; // lenght of fy needed to get to point
+
+                Vector3 op = c + fx * lx + fy * ly; // finds the global position of the x, y Pixel
+            }
+        }
+
+        return result;
+    }
 
 private:
 };
