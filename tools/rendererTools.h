@@ -37,42 +37,30 @@ public:
 private:
 };
 
-Vector3 addVec(Vector3 a, Vector3 b)
-{
-    Vector3 ret(a.x + b.x, a.y + b.y, a.z + b.z);
-    return ret;
+Vector3 addVec(Vector3 a, Vector3 b) {
+    return Vector3(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-Vector3 subVec(Vector3 a, Vector3 b)
-{
-    Vector3 ret(a.x - b.x, a.y - b.y, a.z - b.z);
-    return ret;
+Vector3 subVec(Vector3 a, Vector3 b) {
+    return Vector3(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
-Vector3 mulVec(Vector3 a, float b)
-{
-    Vector3 ret(a.x * b, a.y * b, a.z * b);
-    return ret;
+Vector3 mulVec(Vector3 a, float b) {
+    return Vector3(a.x * b, a.y * b, a.z * b);
 }
 
-Vector3 divVec(Vector3 a, float b)
-{
-    Vector3 ret(a.x / b, a.y / b, a.z / b);
-    return ret;
+Vector3 divVec(Vector3 a, float b){
+    return Vector3(a.x / b, a.y / b, a.z / b);
 }
 
-Vector3 scalarProd(Vector3 a, Vector3 b)
-{
+Vector3 scalarProd(Vector3 a, Vector3 b){
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-Vector3 crossProd(Vector3 a, Vector3 b)
-{
-    Vector3 ret(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, b.y * a.x - a.y * b.x);
-    return ret;
+Vector3 crossProd(Vector3 a, Vector3 b){
+    return Vector3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, b.y * a.x - a.y * b.x);
 }
 
-float det3x3(Matrix a)
-{
+float det3x3(Matrix a){
     return a[0][0]*a[1][1]*a[2][2] + a[0][1]*a[1][2]*a[2][0] + a[0][2]*a[1][0]*a[2][1] - a[2][0]*a[1][1]*a[0][2] - a[2][1]*a[1][2]*a[0][0] - a[2][2]*a[1][0]*a[0][1];
 }
