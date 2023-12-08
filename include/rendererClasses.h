@@ -1,12 +1,14 @@
-#ifndef RENDERER_H
-#define RENDERER_H
-
 #pragma once
+
+#ifndef _RENDERERCLASSES_H_
+#define _RENDERERCLASSES_H_
 
 #include <iostream>
 #include <math.h>
 #include <vector>
-#include "tools/rendererTools.h"
+#include <cstdlib> 
+#include <ctime>
+#include "mathAndVectorTools.h"
 
 typedef unsigned char byte;
 
@@ -18,9 +20,9 @@ class Color
 {
 public:
     Color(byte _r = 255, byte _g = 255, byte _b = 255){
-        r = _r;
-        g = _g;
-        b = _b;
+        r = clamp(0, _r, 255);
+        g = clamp(0, _g, 255);
+        b = clamp(0, _b, 255);
     }
     ~Color() {}
 
@@ -31,6 +33,23 @@ public:
     void print() // writes the color out result: (r: red, g: green, b: blue)
     {
         std::cout << "(r:" << (int)r << ", g:" << (int)g << ", b:" << (int)b << ")" << std::endl;
+    }
+
+    Color operator+(Color const& obj)
+    {
+        return Color((byte)clamp(0, (int)(r) + (int)(obj.r), 255), (byte)clamp(0, (int)(g) + (int)(obj.g), 255), (byte)clamp(0, (int)(b) + (int)(obj.b), 255));
+    }
+    Color operator-(Color const& obj)
+    {
+        return Color((byte)clamp(0, (int)(r) - (int)(obj.r), 255), (byte)clamp(0, (int)(g) - (int)(obj.g), 255), (byte)clamp(0, (int)(b) - (int)(obj.b), 255));
+    }
+    Color operator/(Color const& obj)
+    {
+        return Color(r / obj.r, g / obj.g, b / obj.b);
+    }
+    Color operator*(float const& obj)
+    {
+        return Color((byte)clamp(0, (int)(r) * obj, 255), (byte)clamp(0, (int)(g) * obj, 255), (byte)clamp(0, (int)(b) * obj, 255));
     }
 
 private:
@@ -45,7 +64,7 @@ typedef std::vector<std::vector<Color>> picture; // a 2d vector of color Values
 class Ray
 {
 public:
-    Ray(Vector3 _op, Vector3 _a){
+    Ray(Vector3 _op = Vector3(), Vector3 _a = Vector3()){
         op = _op;
         a = _a;
     }
@@ -68,16 +87,18 @@ private:
 class intersectionData
 {
 public:
-    intersectionData(bool _valid = false, float _t = 0, Vector3 intersectionPoint = Vector3()) {
+    intersectionData(bool _valid = false, float _t = 0, Vector3 intersectionPoint = Vector3(), int _i = -1) {
         valid = _valid;
         t = _t;
         point = intersectionPoint;
+        i = _i;
     }
     ~intersectionData() {}
 
     bool valid = false; // says if the intersection is valid or if there is no intersection of the two shapes
     float t; // the t parameter of the Ray
     Vector3 point; // the intersection point
+    int i; // index used for raycasting
 };
 
 //? ----------------------------------------------------------------------------------------------------------------------------------
@@ -161,7 +182,30 @@ public:
 private:
 };
 
-//! Add Light Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? Light Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+
+class Light
+{
+public:
+    Light(Vector3 _position = Vector3(), Color _color = Color(), float _intensity = 1, float _radius = 0.1f, bool _valid = true) {
+        position = _position;
+        color = _color;
+        intensity = _intensity;
+        radius = _radius;
+        valid = _valid;
+    }
+    ~Light() {}
+
+    Vector3 position;
+    Color color;
+    float intensity;
+    float radius;
+    bool valid;
+
+private:
+};
 
 //? ----------------------------------------------------------------------------------------------------------------------------------
 //? Renderer Class
@@ -170,8 +214,90 @@ private:
 class Renderer
 {
 public:
-    Renderer(std::vector<Polygon> _polygons, Vector3 _c, Vector3 _f, int _xPixls, int _yPixls, float _refraction, int _maxReflections, int _splits, float _xSize) { //c is the camera Pos and f is the focal lenght and rotation of the camera
+    intersectionData rayCast(Ray g)
+    {
+        intersectionData nearest = intersectionData();
+        for (int i = 0; i < polygons.size(); i++)
+        {
+            intersectionData current = polygons[i].intersect(g);
+            current.i = i;
+            if (nearest.valid && current.t < nearest.t)
+                nearest = current;
+            else if (!nearest.valid && current.valid)
+                nearest = current;
+        }
+        return nearest;
+    }
+
+private:
+    int LightIntersect(Ray g) // returns a valid index in lights if the ray has hit a light else -1
+    {
+        for (int i = 0; i < lights.size(); i++)
+        {
+            Vector3 opp = lights[i].position - g.op;
+            if (opp.magnitude() * tan(angleInRads(g.a, opp)) < lights[i].radius)
+                return i;
+        }
+        return -1; // not intersecting with a light
+    }
+
+    Ray reflect(Ray g, intersectionData data) // calculates the perfect reflected ray of a surface
+    {
+        Ray ret(data.point);
+        if (!data.valid)
+            return ret;
+    
+        Vector3 nn = polygons[data.i].normalVector().normalized();
+        if (angleInRads(nn, g.a * -1) > 1.57079632679)
+            nn = nn * -1;
+        Vector3 an = g.a.normalized();
+        Vector3 nt = nn * scalarProd(an, nn);
+        ret.a = nt * 2 - an;
+        return ret;
+    }
+
+    Color recursvieRay(Ray g, int bounces) //! Check how to handle Colors, because it is pobably totally wrong
+    {
+        if (bounces > maxReflections) // checks if it has exceeded the max bounces
+            return defaultBackgroundColor; // returns the default background Color
+        
+        int cr = 0;
+        int cg = 0;
+        int cb = 0;
+
+        int light = LightIntersect(g);
+        if (light != -1) // if intersected with a light returns the color
+            return lights[light].color * (1/pow((lights[light].position - g.op).magnitude(), 2)) * lights[light].intensity;
+        
+        intersectionData mainRay = rayCast(g);
+        if (!mainRay.valid)
+            return defaultBackgroundColor;
+        
+        Ray newRay = reflect(g, mainRay);
+        Color val = recursvieRay(newRay, bounces + 1)/*Add this at the end before return * (1/pow((mainRay.point - g.op).magnitude(), 2))*/;
+        cr += val.r;
+        cg += val.g;
+        cb += val.b;
+
+        for (int i = 0; i < splits - 1; i++)
+        {
+            float xRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
+            float yRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
+            float zRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
+            val = recursvieRay(Ray(newRay.op, Vector3(newRay.a.x + xRand, newRay.a.y + yRand, newRay.a.z + zRand)), bounces + 1) * (1/(1+xRand+yRand+zRand));
+            cr += val.r;
+            cg += val.g;
+            cb += val.b;
+        }
+
+        return Color(cr/splits, cg/splits, cb/splits) * (1/pow((mainRay.point - g.op).magnitude(), 2)) - (Color(255, 255, 255) - polygons[mainRay.i].color);
+    }
+
+public:
+    Renderer(std::vector<Polygon> _polygons, std::vector<Light> _lights, Color _defaultBackgroundColor, Vector3 _c, Vector3 _f, int _xPixls, int _yPixls, float _refraction, int _maxReflections, int _splits, float _xSize) { //c is the camera Pos and f is the focal lenght and rotation of the camera
         polygons = _polygons;
+        lights = _lights;
+        defaultBackgroundColor = _defaultBackgroundColor;
         c = _c;
         f = _f;
         xPixls = _xPixls;
@@ -181,11 +307,16 @@ public:
         maxReflections = _maxReflections;
         xSize = _xSize;
         result = std::vector(_yPixls, std::vector(_xPixls, Color(0, 0, 0)));
+
+        // set random seed
+        srand(time(0));
     }
     ~Renderer() {}
 
     std::vector<Polygon> polygons; // all Polygons in the scene
-    //! Add lights vector
+    std::vector<Light> lights; // all Lights in the scene
+
+    Color defaultBackgroundColor;
 
     Vector3 c; // current position of the Camera
     Vector3 f; // focal lenght and the direction the Camera points
@@ -222,8 +353,10 @@ public:
         if (f.x == 0 && f.y == 1 && f.y == 0)
             fx = Vector3(1, 0, 0);
         else
-            fx = scalarProd(f, Vector3(0, 0, 1)).normalized();
-        Vector3 fy = scalarProd(f, fx).normalized(); // the x Vector of the screens global position and rotation
+            fx = crossProd(f, Vector3(0, 0, 1)).normalized();
+        Vector3 fy = crossProd(f, fx).normalized(); // the x Vector of the screens global position and rotation
+
+        Vector3 fn = f.normalized(); // normalized vector f
         
         for (int y = 0; y < yPixls; y++)
         {
@@ -233,13 +366,24 @@ public:
                 float ly = (y - hsy + addY) * pixToM; // lenght of fy needed to get to point
 
                 Vector3 op = c + fx * lx + fy * ly; // finds the global position of the x, y Pixel
+
+                Vector3 copn = (c - op).normalized(); // normalized vector going from the camera position to the Pixel Position
+                Vector3 a = fn + (fn - copn * scalarProd(copn, fn)) * refraction; // direction Vector of the initial Ray according to refraction
+                // sidenote: scalarProd(copn, fn) is the cos of the angle between the two vectors, because |copn| = |fn| = 1 (makes it slightly more efficient)
+
+                Ray g(op, a);
+                result[y][x] = recursvieRay(g, 0);
             }
         }
 
         return result;
     }
 
-private:
+    void appendPolygons(std::vector<Polygon> polies) // simply appends a list of polygons to polygons (like from a cube funktion)
+    {
+        for (int i = 0; i < polies.size(); i++)
+            polygons.push_back(polies[i]);
+    }
 };
 
 #endif
