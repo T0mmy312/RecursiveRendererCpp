@@ -3,9 +3,9 @@
 #ifndef _RENDERERCLASSES_H_
 #define _RENDERERCLASSES_H_
 
+#include <vector>
 #include <iostream>
 #include <math.h>
-#include <vector>
 #include <cstdlib> 
 #include <ctime>
 #include "mathAndVectorTools.h"
@@ -55,7 +55,7 @@ public:
 private:
 };
 
-typedef std::vector<std::vector<Color>> picture; // a 2d vector of color Values
+typedef std::vector<std::vector<Color>> Picture; // a 2d vector of color Values
 
 //? ----------------------------------------------------------------------------------------------------------------------------------
 //? Ray Class
@@ -306,7 +306,7 @@ public:
         refraction = _refraction;
         maxReflections = _maxReflections;
         xSize = _xSize;
-        result = std::vector(_yPixls, std::vector(_xPixls, Color(0, 0, 0)));
+        result = Picture(_yPixls, std::vector<Color>(_xPixls, Color(0, 0, 0)));
 
         // set random seed
         srand(time(0));
@@ -331,9 +331,9 @@ public:
 
     float xSize; // x size of the screen in world space
 
-    picture result; // the resulting picture of the render
+    Picture result; // the resulting picture of the render
 
-    picture render() // renders the Polygons and stores the pixl values in the result var and returns that
+    Picture render() // renders the Polygons and stores the pixl values in the result var and returns that
     {
         // The Renderer works by casting Rays and reflecting them until they reach a Light
 
