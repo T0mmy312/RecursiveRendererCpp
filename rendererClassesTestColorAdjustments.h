@@ -8,7 +8,10 @@
 #include <math.h>
 #include <cstdlib> 
 #include <ctime>
-#include "mathAndVectorTools.h"
+#include "include/mathAndVectorTools.h"
+
+#define POLYGON_ID 0
+#define SPHERE_ID 1
 
 typedef unsigned char byte;
 
@@ -87,8 +90,9 @@ private:
 class intersectionData
 {
 public:
-    intersectionData(bool _valid = false, float _t = 0, Vector3 intersectionPoint = Vector3(), int _i = -1) {
+    intersectionData(bool _valid = false, int _shapeID = -1, float _t = 0, Vector3 intersectionPoint = Vector3(), int _i = -1) {
         valid = _valid;
+        shapeID = _shapeID;
         t = _t;
         point = intersectionPoint;
         i = _i;
@@ -96,6 +100,7 @@ public:
     ~intersectionData() {}
 
     bool valid = false; // says if the intersection is valid or if there is no intersection of the two shapes
+    int shapeID = -1;
     float t; // the t parameter of the Ray
     Vector3 point; // the intersection point
     int i; // index used for raycasting
@@ -142,8 +147,9 @@ public:
         // II: OP1y + t1 * a1y = OP2y + t2 * a2y + s * by
         // III: OP1z + t1 * a1z = OP2z + t2 * a2z + s * bz
 
-        float dk = det3x3({ // Determinant of all of the coefficients
-            {a.x, b.x, -g.a.x}, 
+    
+        float dk = det3x3({ // Determinant of a 3x3 matrix where the coefficients are swapped with the answers for the wanted Variable
+            {a.x, b.x, -g.a.x}, // Determinant of all of the coefficients
             {a.y, b.y, -g.a.y}, 
             {a.z, b.z, -g.a.z}
         });
@@ -151,32 +157,101 @@ public:
         if (dk == 0) // checks if it intersected
             return intersectionData(); // returns a invalid intersection
 
-        float dt2 = det3x3({ // Determinant of a 3x3 matrix where the coefficients are swapped with the answers for the wanted Variable
-            {g.op.x - op.x, b.x, -g.a.x}, // t2 is the t Parameter of the Polygon
-            {g.op.y - op.y, b.y, -g.a.y}, 
-            {g.op.z - op.z, b.z, -g.a.z}
-        });
         float dt1 = det3x3({ // t1 is the t parameter of the Ray
             {a.x, b.x, g.op.x - op.x},
             {a.y, b.y, g.op.y - op.y},
             {a.z, b.z, g.op.z - op.z}
+        });
+
+        float t1 = dt1 / dk; // calculation of the parameter of the intersection for the Ray
+        if (t1 < 0)
+            return intersectionData(); // returns a invalid solution if the Ray went backwards
+
+        float dt2 = det3x3({ // t2 is the t Parameter of the Polygon
+            {g.op.x - op.x, b.x, -g.a.x},
+            {g.op.y - op.y, b.y, -g.a.y}, 
+            {g.op.z - op.z, b.z, -g.a.z}
         });
         float ds = det3x3({ // s is the s parameter of the Polygon
             {a.x, g.op.x - op.x, -g.a.x},
             {a.y, g.op.y - op.y, -g.a.y},
             {a.z, g.op.z - op.z, -g.a.z}
         });
-
-        float t1 = dt1 / dk; // calculation of the parameter of the intersection for the Ray
-        if (t1 < 0)
-            return intersectionData(); // returns a invalid solution if the Ray went backwards
         
         float t2 = dt2 / dk;  // calculation of the first parameter of the intersection for the Polygon
         float s = ds / dk; // calculation of the second parameter of the intersection for the Polygon
-        if (t2 + s > 1 || t1 < 0 || s < 0) // checks if the intersection Point is inside the boundaries of the Polygon
+        if (t2 + s > 1 || t2 < 0 || s < 0) // checks if the intersection Point is inside the boundaries of the Polygon
             return intersectionData(); // it can happen that it is outside, because we actually intersected it with a infinte Plane not a Polygon
         
-        return intersectionData(true, t1, g.calc(t1));
+        return intersectionData(true, POLYGON_ID, t1, g.calc(t1));
+    }
+
+private:
+};
+
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? Sphere Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+
+class Sphere
+{
+public:
+    Sphere(Vector3 _op = Vector3(), float _sx = 1, float _sy = 1, float _sz = 1, float _radius = 1) {
+        op = _op;
+        sx = _sx;
+        sy = _sy;
+        sz = _sz;
+        radius = _radius;
+    }
+    ~Sphere() {}
+
+    Vector3 op; // origin Point of the Sphere
+    float sx; // scale x
+    float sy; // scale y
+    float sz; // scale z
+    float radius; // radius of the Sphere
+    // general formular for a sphere: radius^2 = (x - op.x)^2 / sx + (y - op.y)^2 / sy + (z - op.z)^2 / sz
+
+    Vector3 normalVector(Vector3 intersectionPoint) { // calculates the normal Vector for a spezific intersection Point on the surface of the sphere
+        return Vector3((intersectionPoint.x - op.x)/sx, (intersectionPoint.y - op.y)/sy, (intersectionPoint.y - op.y)/sy);
+    }
+    intersectionData intersect(Ray g) // intersects a ray with the sphere returns the nearest valid not negativ (on the line) intersection Point
+    {
+        // a, b and c are the variables for the long quadratic formular they come from:
+        // g: X = op + t * a (fromular for the line)
+        // s: radius^2 = (x - op.x)^2 / sx + (y - op.y)^2 / sy + (z - op.z)^2 / sz (formular for the sphere)
+        // then we just need to insert the x, y and z formulars of the Line into the sphere formular and turn it into the 0 = ax^2 + bx + c form
+        // -> radius^2 = (g.op.x + t * g.a.x - op.x)^2 / sx + (g.op.y + t * g.a.y - op.y)^2 / sy + (g.op.y + t * g.a.y - op.z)^2 / sz
+        // -> 0 = (g.a.x^2/sx + g.a.y^2/sy + g.a.z^2/sz) * t^2 + ((2 * (g.op.x - op.x) * a.x)/sx + (2 * (g.op.y - op.y) * a.y)/sy + (2 * (g.op.z - op.z) * a.z)/sz) * t + ((g.op.x - op.x)^2/sx + (g.op.y - op.y)^2/sy + (g.op.z - op.z)^2/sz + radius^2)
+        // -> a = g.a.x^2/sx + g.a.y^2/sy + g.a.z^2/sz
+        //    b = (2 * (g.op.x - op.x) * a.x)/sx + (2 * (g.op.y - op.y) * a.y)/sy + (2 * (g.op.z - op.z) * a.z)/sz
+        //    c = (g.op.x - op.x)^2/sx + (g.op.y - op.y)^2/sy + (g.op.z - op.z)^2/sz + radius^2
+        // -> t1,t2 = (-b (+,-) sqrt(b^2 - 4*a*c))/(2*a)
+
+        double a = (g.a.x * g.a.x) / sx + (g.a.y * g.a.y) / sy + (g.a.z * g.a.z) / sz;
+        double b = (2 * (g.op.x - op.x) * g.a.x)/sx + (2 * (g.op.y - op.y) * g.a.y)/sy + (2 * (g.op.z - op.z) * g.a.z)/sz;
+        double c = sqr(g.op.x - op.x)/sx + sqr(g.op.y - op.y)/sy + sqr(g.op.z - op.z)/sz + radius * radius;
+
+        if (2*a == 0) // checks if the division is invalid if so return a invalid intersection
+            return intersectionData();
+        double rootContent = b*b - 4 * a * c; // calculates the content of the root
+        if (rootContent < 0) // checks if it is an invalid root if so returns an invalid intersection
+            return intersectionData();
+        if (rootContent == 0) // checks if the content of the root is 0 if so the formular is simpler and there is only one intersection Point
+        {
+            float t = (-b)/(2 * a); // calcultes t with (-b (+,-) sqrt(b^2 - 4*a*c))/(2*a) but with sqrt(b^2 - 4*a*c) being 0 so t = (-b)/(2*a)
+            if (t < 0) // if t is negativ it returns an invalid intersection, because the only intersection is if the ray where to travel backwards
+                return intersectionData();
+            return intersectionData(true, SPHERE_ID, t, g.calc(t)); // returns the valid intersection
+        }
+        double root = sqrt(rootContent); // calculates the root once, because it could be that it is used twice
+        float t = (-b - root)/(2 * a); // calculates the nearest t to the origin
+        if (t < 0) // if that t is negativ
+            t = (-b + root)/(2 * a); // calcultes the other posibillity for t
+            if (t < 0) // if that is also negativ it returns a invalid intersection
+                return intersectionData();
+            return intersectionData(true, SPHERE_ID, t, g.calc(t)); // returns the other valid intersection
+        return intersectionData(true, SPHERE_ID, t, g.calc(t)); // returns the nearer valid intersection
     }
 
 private:
@@ -189,7 +264,7 @@ private:
 class Light
 {
 public:
-    Light(Vector3 _position = Vector3(), Color _color = Color(), float _intensity = 1, float _radius = 0.1f, bool _valid = true) {
+    Light(Vector3 _position = Vector3(), Color _color = Color(), float _intensity = 1, float _radius = 0.5f, bool _valid = true) {
         position = _position;
         color = _color;
         intensity = _intensity;
@@ -203,6 +278,46 @@ public:
     float intensity;
     float radius;
     bool valid;
+
+private:
+};
+
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? Color and intensity data Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+
+class scai // stands for Single Color And Intensity
+{
+public:
+    scai(Color _color = Color(), double _intensity = 1) {
+        color = _color;
+        intensity = _intensity;
+    }
+    ~scai() {}
+
+    Color color;
+    double intensity;
+
+public:
+};
+
+typedef std::vector<std::vector<scai>> iMatrix;
+
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? Recursive Return Data Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+
+class RecursiveReturnData
+{
+public:
+    RecursiveReturnData(scai _lightVals, long double _distance = -1) {
+        lightVals = _lightVals;
+        distance = _distance;
+    }
+    ~RecursiveReturnData() {}
+
+    scai lightVals;
+    long double distance;
 
 private:
 };
@@ -223,9 +338,7 @@ public:
                 continue;
             intersectionData current = polygons[i].intersect(g);
             current.i = i;
-            if (nearest.valid && current.t < nearest.t)
-                nearest = current;
-            else if (!nearest.valid && current.valid)
+            if ((!nearest.valid || current.t < nearest.t) && current.valid)
                 nearest = current;
         }
         return nearest;
@@ -258,10 +371,10 @@ private:
         return ret;
     }
 
-    Color recursvieRay(Ray g, int bounces, int except = -1) //! Check how to handle Colors, because it is pobably totally wrong
+    RecursiveReturnData recursvieRay(Ray g, int bounces, int except = -1) //! Check how to handle Colors, because it is pobably totally wrong
     {
         if (bounces > maxReflections) // checks if it has exceeded the max bounces
-            return defaultBackgroundColor; // returns the default background Color
+            return RecursiveReturnData(scai(defaultBackgroundColor, defaultBackgroundIntensity), 0); // returns the default background Color
         
         int cr = 0;
         int cg = 0;
@@ -269,17 +382,19 @@ private:
 
         int light = LightIntersect(g);
         if (light != -1) // if intersected with a light returns the color
-            return lights[light].color * (1/pow((lights[light].position - g.op).magnitude(), 2)) * lights[light].intensity;
+            return RecursiveReturnData(scai(lights[light].color, lights[light].intensity), (lights[light].position - g.op).magnitude());
         
         intersectionData mainRay = rayCast(g, except);
         if (!mainRay.valid)
-            return defaultBackgroundColor;
+            return scai(defaultBackgroundColor, 1);
         
         Ray newRay = reflect(g, mainRay);
-        Color val = recursvieRay(newRay, bounces + 1, mainRay.i) * 0.5f;
-        cr += val.r;
-        cg += val.g;
-        cb += val.b;
+        RecursiveReturnData newRayData = recursvieRay(newRay, bounces + 1, mainRay.i);
+        double intensity = newRayData.lightVals.intensity * 0.5f;
+        long double distance = newRayData.distance * 0.5f;
+        cr += newRayData.lightVals.color.r * 0.5f;
+        cg += newRayData.lightVals.color.g * 0.5f;
+        cb += newRayData.lightVals.color.b * 0.5f;
 
         int mulVal = 0.5f / (splits - 1);
 
@@ -288,13 +403,15 @@ private:
             float xRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
             float yRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
             float zRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
-            val = recursvieRay(Ray(newRay.op, Vector3(newRay.a.x + xRand, newRay.a.y + yRand, newRay.a.z + zRand)), bounces + 1, mainRay.i) * mulVal;
-            cr += val.r;
-            cg += val.g;
-            cb += val.b;
+            RecursiveReturnData rayData = recursvieRay(Ray(newRay.op, Vector3(newRay.a.x + xRand, newRay.a.y + yRand, newRay.a.z + zRand)), bounces + 1, mainRay.i);
+            distance += rayData.distance * mulVal;
+            intensity += rayData.lightVals.intensity * mulVal;
+            cr += rayData.lightVals.color.r * mulVal;
+            cg += rayData.lightVals.color.g * mulVal;
+            cb += rayData.lightVals.color.b * mulVal;
         }
 
-        return Color(cr, cg, cb) * (1/pow((mainRay.point - g.op).magnitude(), 2)) /*- (Color(255, 255, 255) - polygons[mainRay.i].color)*/;
+        return RecursiveReturnData(scai(Color(cr, cg, cb)/*- (Color(255, 255, 255) - polygons[mainRay.i].color)*/, intensity), distance + (mainRay.point - g.op).magnitude());
     }
 
 public:
@@ -321,6 +438,7 @@ public:
     std::vector<Light> lights; // all Lights in the scene
 
     Color defaultBackgroundColor;
+    float defaultBackgroundIntensity;
 
     Vector3 c; // current position of the Camera
     Vector3 f; // focal lenght and the direction the Camera points
@@ -361,6 +479,10 @@ public:
         Vector3 fy = crossProd(f, fx).normalized(); // the x Vector of the screens global position and rotation
 
         Vector3 fn = f.normalized(); // normalized vector f
+
+        iMatrix preResult(yPixls, std::vector<scai>(xPixls, scai()));
+        double minIntensity = 999999999;
+        double maxIntensity = -999999999;
         
         for (int y = 0; y < yPixls; y++)
         {
@@ -376,7 +498,27 @@ public:
                 // sidenote: scalarProd(copn, fn) is the cos of the angle between the two vectors, because |copn| = |fn| = 1 (makes it slightly more efficient)
 
                 Ray g(op, a);
-                result[y][x] = recursvieRay(g, 0);
+                RecursiveReturnData retData = recursvieRay(g, 0);
+                preResult[y][x] = scai(retData.lightVals.color, 1 / pow(retData.distance + (1 / sqrt(retData.lightVals.intensity)), 2));
+                // this "1 / pow(retData.distance + (1 / sqrt(retData.lightVals.intensity)), 2)" calculates the intensity for retData.distance where if that where 0 the intensity would be retData.lightVals.intensity
+                if (preResult[y][x].intensity < minIntensity)
+                    minIntensity = preResult[y][x].intensity;
+                else if (preResult[y][x].intensity > maxIntensity)
+                    maxIntensity = preResult[y][x].intensity;
+            }
+        }
+
+        if (minIntensity == 999999999 || maxIntensity == -999999999) // returns an Error if the Intensity probably wasn't calculated correctly
+        {
+            std::cout << "Could not render (probably an Error with Light intensity)!" << std::endl;
+            return Picture();
+        }
+        double dif = maxIntensity - minIntensity;
+        for (int y = 0; y < yPixls; y++)
+        {
+            for (int x = 0; x < xPixls; x++)
+            {
+                result[y][x] = preResult[y][x].color * ((preResult[y][x].intensity - minIntensity) / dif);
             }
         }
 

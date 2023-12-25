@@ -66,6 +66,10 @@ public:
 private:
 };
 
+float sqr(float x) { // just return x^2
+    return x * x;
+}
+
 float scalarProd(Vector3 a, Vector3 b) { // returns the scalar produkt of two vectors
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
