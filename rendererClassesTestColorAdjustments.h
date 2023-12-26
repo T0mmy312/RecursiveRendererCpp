@@ -301,13 +301,13 @@ public:
 public:
 };
 
-typedef std::vector<std::vector<scai>> iMatrix;
+typedef std::vector<std::vector<scai>> iMatrix; // intensity matrix typedef
 
 //? ----------------------------------------------------------------------------------------------------------------------------------
 //? Recursive Return Data Class
 //? ----------------------------------------------------------------------------------------------------------------------------------
 
-class RecursiveReturnData
+class RecursiveReturnData // return data of the recursvieRay funktion
 {
 public:
     RecursiveReturnData(scai _lightVals, long double _distance = -1) {
@@ -329,89 +329,106 @@ private:
 class Renderer
 {
 public:
-    intersectionData rayCast(Ray g, int except = -1)
+    intersectionData rayCast(Ray g, int except = -1, int except_shape_id = -1) // returns the nearest intersection of any object in polygons and spheres (execpt for the execption)
     {
-        intersectionData nearest = intersectionData();
-        for (int i = 0; i < polygons.size(); i++)
+        intersectionData nearest = intersectionData(); // sets a default invalid intersection point
+        for (int i = 0; i < polygons.size(); i++) // loops through every polygon in polygons
         {
-            if (i == except)
+            if (i == except && except_shape_id == POLYGON_ID) // checks if this is the exception if so it goes to the next loop
                 continue;
-            intersectionData current = polygons[i].intersect(g);
-            current.i = i;
-            if ((!nearest.valid || current.t < nearest.t) && current.valid)
-                nearest = current;
+            intersectionData current = polygons[i].intersect(g); // calculates the intersection of the current Polygon
+            current.i = i; // sets the i compomponent of the intersection data to the current index
+            if ((!nearest.valid || current.t < nearest.t) && current.valid) // checks if the intersection is valid and nearer then the current min
+                nearest = current; // replaces the nearest intersection with current intersection
         }
-        return nearest;
+        for (int i = 0; i < spheres.size(); i++) // loops through all spheres
+        {
+            if (i == except && except_shape_id == SPHERE_ID) // if this is the execption it continues
+                continue;
+            intersectionData current = spheres[i].intersect(g); // calcultes the current intersection
+            current.i = i; // sets the i value to the current index
+            if ((!nearest.valid || current.t < nearest.t) && current.valid) // checks if the current intersection is nearer then nearest and is valid
+                nearest = current; // sets nearest to current
+        }
+        return nearest; // returns the nearest intersection
     }
 
 private:
     int LightIntersect(Ray g) // returns a valid index in lights if the ray has hit a light else -1
     {
-        for (int i = 0; i < lights.size(); i++)
+        for (int i = 0; i < lights.size(); i++) // loops through all Lights
         {
-            Vector3 opp = lights[i].position - g.op;
-            if (opp.magnitude() * tan(angleInRads(g.a, opp)) < lights[i].radius)
-                return i;
+            Vector3 opp = lights[i].position - g.op; // calculates the vector between the origin of the ray and the light
+            if (opp.magnitude() * tan(angleInRads(g.a, opp)) < lights[i].radius) // if the lenght of the opposite side is shorter then the radius of the Light
+                return i; // returns the index of the Light
         }
         return -1; // not intersecting with a light
     }
 
     Ray reflect(Ray g, intersectionData data) // calculates the perfect reflected ray of a surface
     {
-        Ray ret(data.point);
-        if (!data.valid)
+        Ray ret(data.point); // sets a default invalid returns ray where the directional vector a of ret is (0, 0, 0)
+        if (!data.valid || data.i == -1) // if the intersection data is invalid it returns the invalid ray
             return ret;
-    
-        Vector3 nn = polygons[data.i].normalVector().normalized();
-        if (angleInRads(nn, g.a * -1) > 1.57079632679)
-            nn = nn * -1;
-        Vector3 an = g.a.normalized();
-        Vector3 nt = nn * scalarProd(an, nn);
-        ret.a = nt * 2 - an;
-        return ret;
+
+        Vector3 nn; // declares the normalized normal vector of the reflecting surface
+        if (data.shapeID == POLYGON_ID) // checks if that surface is a polygon
+            nn = polygons[data.i].normalVector().normalized(); // calculates the normalized normal vector of that polygon
+        else if (data.shapeID == SPHERE_ID) // checks if it is a sphere
+            nn = spheres[data.i].normalVector(data.point).normalized(); // calculates the normalized normal vector of that intersection point on that sphere
+        float alpha = angleInRads(nn, g.a * -1); // calculates the angle between the normalized normal vector and the reversed a vector
+        if (alpha > 1.57079632679) // checks if the angle between the normal vector and the reversed a vector is more then 90° (in radians) 
+            nn = nn * -1; // reverses the normalized normal vector
+        Vector3 an = g.a * cos(alpha) * -1; // calculates the reverse and lenght adjusted vector an
+        Vector3 nt = nn - an; // calculates the vector between the normal vector and the an vector
+        ret.a = nn + nt; // calculates the outgoing a vector of the reflection
+        return ret; // returns ret
     }
 
-    RecursiveReturnData recursvieRay(Ray g, int bounces, int except = -1) //! Check how to handle Colors, because it is pobably totally wrong
+    RecursiveReturnData recursvieRay(Ray g, int bounces, int except = -1, int except_shape_id = -1) // fires a light ray that then bounces and sents splits more rays out that do the same until it reaces a light
     {
+        //! Check how to handle Colors, because it is pobably totally wrong
         if (bounces > maxReflections) // checks if it has exceeded the max bounces
             return RecursiveReturnData(scai(defaultBackgroundColor, defaultBackgroundIntensity), 0); // returns the default background Color
         
-        int cr = 0;
-        int cg = 0;
-        int cb = 0;
+        int cr = 0; // stores the avariged red values of the next bounces
+        int cg = 0; // stores the avariged green values of the next bounces
+        int cb = 0; // stores the avariged blue values of the next bounces
 
-        int light = LightIntersect(g);
-        if (light != -1) // if intersected with a light returns the color
-            return RecursiveReturnData(scai(lights[light].color, lights[light].intensity), (lights[light].position - g.op).magnitude());
-        
-        intersectionData mainRay = rayCast(g, except);
-        if (!mainRay.valid)
-            return scai(defaultBackgroundColor, 1);
-        
-        Ray newRay = reflect(g, mainRay);
-        RecursiveReturnData newRayData = recursvieRay(newRay, bounces + 1, mainRay.i);
-        double intensity = newRayData.lightVals.intensity * 0.5f;
-        long double distance = newRayData.distance * 0.5f;
-        cr += newRayData.lightVals.color.r * 0.5f;
-        cg += newRayData.lightVals.color.g * 0.5f;
-        cb += newRayData.lightVals.color.b * 0.5f;
+        int light = LightIntersect(g); // checks if this ray intersects with a light
+        intersectionData mainRay = rayCast(g, except, except_shape_id);
+        if (!mainRay.valid) { // checks if the rayCast is valid
+            if (light != -1) // if intersected with a light returns the color
+                return RecursiveReturnData(scai(lights[light].color, lights[light].intensity), (lights[light].position - g.op).magnitude()); // returns the light data and the distance this ray traveled
+            return scai(defaultBackgroundColor, defaultBackgroundIntensity); // returns the default background color and default background intensity
+        }
+        if ((lights[light].position - g.op).magnitude() < (mainRay.point - g.op).magnitude()) // checks if the light in nearer then the rayCast if so it returns the light
+            return RecursiveReturnData(scai(lights[light].color, lights[light].intensity), (lights[light].position - g.op).magnitude()); // returns the light data and the distance this ray traveled
 
-        int mulVal = 0.5f / (splits - 1);
+        Ray newRay = reflect(g, mainRay); // reflects the the rayCast Ray
+        RecursiveReturnData newRayData = recursvieRay(newRay, bounces + 1, mainRay.i, mainRay.shapeID); // creates a new recursvieRay with the reflected Ray
+        double intensity = newRayData.lightVals.intensity * 0.5f; // calculates the intensity with a weighting of 50% for this return value
+        long double distance = newRayData.distance * 0.5f; // calculates the distance with a weighting of 50% for this return value
+        cr += newRayData.lightVals.color.r * 0.5f; // calculates the red value with a weighting of 50% for this return value
+        cg += newRayData.lightVals.color.g * 0.5f; // calculates the green value with a weighting of 50% for this return value
+        cb += newRayData.lightVals.color.b * 0.5f; // calculates the blue value with a weighting of 50% for this return value
 
-        for (int i = 0; i < splits - 1; i++)
+        int mulVal = 0.5f / (splits - 1); // calculates the weighting for the next rays
+
+        for (int i = 0; i < splits - 1; i++) // generates so many other rays as splits - 1 (because one was alredy generated)
         {
-            float xRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
-            float yRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
-            float zRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter;
-            RecursiveReturnData rayData = recursvieRay(Ray(newRay.op, Vector3(newRay.a.x + xRand, newRay.a.y + yRand, newRay.a.z + zRand)), bounces + 1, mainRay.i);
-            distance += rayData.distance * mulVal;
-            intensity += rayData.lightVals.intensity * mulVal;
-            cr += rayData.lightVals.color.r * mulVal;
-            cg += rayData.lightVals.color.g * mulVal;
-            cb += rayData.lightVals.color.b * mulVal;
+            float xRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter; // generates a random x offset for the next ray with the scatter variable of Polygon
+            float yRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter; // generates a random y offset for the next ray with the scatter variable of Polygon
+            float zRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter; // generates a random z offset for the next ray with the scatter variable of Polygon
+            RecursiveReturnData rayData = recursvieRay(Ray(newRay.op, Vector3(newRay.a.x + xRand, newRay.a.y + yRand, newRay.a.z + zRand)), bounces + 1, mainRay.i, mainRay.shapeID); // generates another recursvieRay and gets the return data
+            distance += rayData.distance * mulVal; // adds to the total distance with the desired weighting of this ray
+            intensity += rayData.lightVals.intensity * mulVal; // adds to the total intensity with the desired weighting of this ray
+            cr += rayData.lightVals.color.r * mulVal; // adds to the red value with the desired weighting of this ray
+            cg += rayData.lightVals.color.g * mulVal; // adds to the green value with the desired weighting of this ray
+            cb += rayData.lightVals.color.b * mulVal; // adds to the blue value with the desired weighting of this ray
         }
 
-        return RecursiveReturnData(scai(Color(cr, cg, cb)/*- (Color(255, 255, 255) - polygons[mainRay.i].color)*/, intensity), distance + (mainRay.point - g.op).magnitude());
+        return RecursiveReturnData(scai(Color(cr, cg, cb)/*- (Color(255, 255, 255) - polygons[mainRay.i].color)*/, intensity), distance + (mainRay.point - g.op).magnitude()); // returns the data collected from the other return values
     }
 
 public:
@@ -435,6 +452,7 @@ public:
     ~Renderer() {}
 
     std::vector<Polygon> polygons; // all Polygons in the scene
+    std::vector<Sphere> spheres; // all spheres in the scene
     std::vector<Light> lights; // all Lights in the scene
 
     Color defaultBackgroundColor;
