@@ -12,6 +12,7 @@
 
 #define POLYGON_ID 0
 #define SPHERE_ID 1
+#define SKYBOX_ID 2
 
 typedef unsigned char byte;
 
@@ -264,12 +265,11 @@ private:
 class Light
 {
 public:
-    Light(Vector3 _position = Vector3(), Color _color = Color(), float _intensity = 1, float _radius = 0.5f, bool _valid = true) {
+    Light(Vector3 _position = Vector3(), Color _color = Color(), float _intensity = 1, float _radius = 0.5f) {
         position = _position;
         color = _color;
         intensity = _intensity;
         radius = _radius;
-        valid = _valid;
     }
     ~Light() {}
 
@@ -277,7 +277,47 @@ public:
     Color color;
     float intensity;
     float radius;
-    bool valid;
+
+private:
+};
+
+//? ----------------------------------------------------------------------------------------------------------------------------------
+//? skybox Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+
+class Skybox
+{
+public:
+    Skybox(Vector3 _position = Vector3(), Color _color = Color(0, 191, 255), float _intensity = 100, float _radius = 100) {
+        position = _position;
+        color = _color;
+        intensity = _intensity;
+        radius = _radius;
+    }
+    ~Skybox() {}
+
+    Vector3 position;
+    Color color;
+    float intensity;
+    float radius;
+
+    //! Only works if camera is in the skybox
+    intersectionData intersect(Ray g) // returns the intersection between a ray and this skybox
+    {
+        // this works basically the same way as the sphere intersection, but the formular is a bit simpler, because the aren't all of the sx, sy and sz to care about and only returns one answer
+
+        double a = g.a.x * g.a.x + g.a.y * g.a.y + g.a.z * g.a.z;
+        double b = 2 * (g.op.x - position.x) * g.a.x + 2 * (g.op.y - position.y) * g.a.y + 2 * (g.op.z - position.z) * g.a.z;
+        double c = sqr(g.op.x - position.x) + sqr(g.op.y - position.y) + sqr(g.op.z - position.z) - radius * radius;
+
+        if (2 * a == 0) // checks if the division is valid
+            return intersectionData(); // returns invalid intersection
+        double rootContent = b * b - 4 * a * c;
+        if (rootContent < 0) // checks if the sqrt is valid
+            return intersectionData(); // returns invalid intersection
+        float t = (-b + sqrt(rootContent))/(2 * a); // calculates t with the long quadratic formular x1,2 = (-b +- sqrt(b^2 - 4ac))/(2a)
+        return intersectionData(true, SKYBOX_ID, t, g.calc(t)); // returns valid intersection
+    }
 
 private:
 };
@@ -454,9 +494,11 @@ public:
     std::vector<Polygon> polygons; // all Polygons in the scene
     std::vector<Sphere> spheres; // all spheres in the scene
     std::vector<Light> lights; // all Lights in the scene
+    std::vector<Skybox> skyboxes; // all skyboxes in the scene
+    // TODO: implement skyboxes
 
-    Color defaultBackgroundColor;
-    float defaultBackgroundIntensity;
+    Color defaultBackgroundColor; // the defaut color when the ray doesn't hit anything
+    float defaultBackgroundIntensity; // the default intensity when the ray doesn't hit anything
 
     Vector3 c; // current position of the Camera
     Vector3 f; // focal lenght and the direction the Camera points
@@ -476,6 +518,10 @@ public:
     Picture render() // renders the Polygons and stores the pixl values in the result var and returns that
     {
         // The Renderer works by casting Rays and reflecting them until they reach a Light
+
+        //* opens intensityMatrixResult.txt for debuging resons
+        std::FILE* debug = std::fopen("intensityMatrixResult.txt", "w");
+        //* debuging code over
 
         float pixToM = xSize / xPixls; // variable to convert pixl mesurements in global units (m)
 
@@ -518,11 +564,18 @@ public:
                 Ray g(op, a);
                 RecursiveReturnData retData = recursvieRay(g, 0);
                 preResult[y][x] = scai(retData.lightVals.color, 1 / pow(retData.distance + (1 / sqrt(retData.lightVals.intensity)), 2));
-                // this "1 / pow(retData.distance + (1 / sqrt(retData.lightVals.intensity)), 2)" calculates the intensity for retData.distance where if that where 0 the intensity would be retData.lightVals.intensity
+                // this "1 / pow(retData.distance + (1 / sqrt(retData.lightVals.intensity)), 2)" calculates the intensity for retData.distance where if the distance where 0 the intensity would be retData.lightVals.intensity
                 if (preResult[y][x].intensity < minIntensity)
                     minIntensity = preResult[y][x].intensity;
                 else if (preResult[y][x].intensity > maxIntensity)
                     maxIntensity = preResult[y][x].intensity;
+                
+                //* adds the intensity data to intensityMatrixResult.txt for debuging resons
+                if (x != xPixls - 1)
+                    std::fprintf(debug, "%d, ", preResult[y][x].intensity);
+                else
+                    std::fprintf(debug, "%d\n", preResult[y][x].intensity);
+                //* debuging code over
             }
         }
 
@@ -531,12 +584,12 @@ public:
             std::cout << "Could not render (probably an Error with Light intensity)!" << std::endl;
             return Picture();
         }
-        double dif = maxIntensity - minIntensity;
+        double dif = maxIntensity - minIntensity; // calculates the diference between min and max
         for (int y = 0; y < yPixls; y++)
         {
             for (int x = 0; x < xPixls; x++)
             {
-                result[y][x] = preResult[y][x].color * ((preResult[y][x].intensity - minIntensity) / dif);
+                result[y][x] = preResult[y][x].color * ((preResult[y][x].intensity - minIntensity) / dif); // scales the color percentigewise between min and max
             }
         }
 

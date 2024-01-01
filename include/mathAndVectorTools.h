@@ -66,7 +66,7 @@ public:
 private:
 };
 
-float sqr(float x) { // just return x^2
+float sqr(float x) { // just returns x^2
     return x * x;
 }
 
