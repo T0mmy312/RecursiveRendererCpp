@@ -288,7 +288,7 @@ private:
 class Skybox
 {
 public:
-    Skybox(Vector3 _position = Vector3(), Color _color = Color(0, 191, 255), float _intensity = 100, float _radius = 100) {
+    Skybox(Vector3 _position = Vector3(), Color _color = Color(0, 191, 255), float _intensity = 1000, float _radius = 1000) {
         position = _position;
         color = _color;
         intensity = _intensity;
@@ -440,7 +440,10 @@ private:
         if (!mainRay.valid) { // checks if the rayCast is valid
             if (light != -1) // if intersected with a light returns the color
                 return RecursiveReturnData(scai(lights[light].color, lights[light].intensity), (lights[light].position - g.op).magnitude()); // returns the light data and the distance this ray traveled
-            return scai(defaultBackgroundColor, defaultBackgroundIntensity); // returns the default background color and default background intensity
+            intersectionData skyIntersect = skybox.intersect(g); // trys to intersect the ray with the Skybox
+            if (!skyIntersect.valid)
+                return RecursiveReturnData(scai(defaultBackgroundColor, defaultBackgroundIntensity), 0); // returns the default background color and default background intensity
+            return RecursiveReturnData(scai(skybox.color, skybox.intensity), (skyIntersect.point - g.op).magnitude());
         }
         if ((lights[light].position - g.op).magnitude() < (mainRay.point - g.op).magnitude()) // checks if the light in nearer then the rayCast if so it returns the light
             return RecursiveReturnData(scai(lights[light].color, lights[light].intensity), (lights[light].position - g.op).magnitude()); // returns the light data and the distance this ray traveled
@@ -457,9 +460,9 @@ private:
 
         for (int i = 0; i < splits - 1; i++) // generates so many other rays as splits - 1 (because one was alredy generated)
         {
-            float xRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter; // generates a random x offset for the next ray with the scatter variable of Polygon
-            float yRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter; // generates a random y offset for the next ray with the scatter variable of Polygon
-            float zRand = (((rand() % 1000) / 100) - 5) * polygons[mainRay.i].scatter; // generates a random z offset for the next ray with the scatter variable of Polygon
+            float xRand = (((rand() % 1000) / 1000) - 0.5) * polygons[mainRay.i].scatter; // generates a random x offset for the next ray with the scatter variable of Polygon
+            float yRand = (((rand() % 1000) / 1000) - 0.5) * polygons[mainRay.i].scatter; // generates a random y offset for the next ray with the scatter variable of Polygon
+            float zRand = (((rand() % 1000) / 1000) - 0.5) * polygons[mainRay.i].scatter; // generates a random z offset for the next ray with the scatter variable of Polygon
             RecursiveReturnData rayData = recursvieRay(Ray(newRay.op, Vector3(newRay.a.x + xRand, newRay.a.y + yRand, newRay.a.z + zRand)), bounces + 1, mainRay.i, mainRay.shapeID); // generates another recursvieRay and gets the return data
             distance += rayData.distance * mulVal; // adds to the total distance with the desired weighting of this ray
             intensity += rayData.lightVals.intensity * mulVal; // adds to the total intensity with the desired weighting of this ray
@@ -472,9 +475,10 @@ private:
     }
 
 public:
-    Renderer(std::vector<Polygon> _polygons, std::vector<Light> _lights, Color _defaultBackgroundColor, Vector3 _c, Vector3 _f, int _xPixls, int _yPixls, float _refraction, int _maxReflections, int _splits, float _xSize) { //c is the camera Pos and f is the focal lenght and rotation of the camera
+    Renderer(std::vector<Polygon> _polygons, std::vector<Light> _lights, Skybox _skybox, Color _defaultBackgroundColor, Vector3 _c, Vector3 _f, int _xPixls, int _yPixls, float _refraction, int _maxReflections, int _splits, float _xSize) { //c is the camera Pos and f is the focal lenght and rotation of the camera
         polygons = _polygons;
         lights = _lights;
+        skybox = _skybox;
         defaultBackgroundColor = _defaultBackgroundColor;
         c = _c;
         f = _f;
@@ -494,8 +498,8 @@ public:
     std::vector<Polygon> polygons; // all Polygons in the scene
     std::vector<Sphere> spheres; // all spheres in the scene
     std::vector<Light> lights; // all Lights in the scene
-    std::vector<Skybox> skyboxes; // all skyboxes in the scene
-    // TODO: implement skyboxes
+    Skybox skybox = Skybox(); // the skybox
+    // TODO: implement skybox
 
     Color defaultBackgroundColor; // the defaut color when the ray doesn't hit anything
     float defaultBackgroundIntensity; // the default intensity when the ray doesn't hit anything
