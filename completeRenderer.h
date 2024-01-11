@@ -1,3 +1,9 @@
+
+#pragma once
+
+#ifndef _COMPLETERENDERER_H_
+#define _COMPLETERENDERER_H_
+
 #include <iostream>
 #include <vector>
 #include <math.h>
@@ -8,11 +14,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <assert.h>
-
-#pragma once
-
-#ifndef _COMPLETERENDERER_H_
-#define _COMPLETERENDERER_H_
 
 #ifndef _PNGWRITE_H_
 #define _PNGWRITE_H_
@@ -88,6 +89,10 @@ public:
 
 private:
 };
+
+float sqr(float x) { // just returns x^2
+    return x * x;
+}
 
 float scalarProd(Vector3 a, Vector3 b) { // returns the scalar produkt of two vectors
     return a.x * b.x + a.y * b.y + a.z * b.z;

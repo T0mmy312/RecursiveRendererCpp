@@ -26,8 +26,8 @@ def getContent(filename):
         file.close()
     return ret
 
-content = "\n#pragma once\n\n#ifndef _COMPLETERENDERER_H_\n#define _COMPLETERENDERER_H_\n" + getContent("include/pngWrite.h") + "\n#endif"
-content = "".join(toInclude) + content
+content = getContent("include/pngWrite.h") + "\n#endif"
+content = "\n#pragma once\n\n#ifndef _COMPLETERENDERER_H_\n#define _COMPLETERENDERER_H_\n\n" + "".join(toInclude) + content
 with open("completeRenderer.h", "w") as file:
     file.write(content)
     file.close()
