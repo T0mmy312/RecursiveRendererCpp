@@ -1,6 +1,6 @@
 
 #
-# this just builds the finished project, that everything is in on header file just so its simpler.
+# this just builds the finished project, that everything is in one header file just so its simpler.
 #
 
 toInclude = []

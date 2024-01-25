@@ -10,13 +10,13 @@
 #include "stb_image_write.h"
 
 bool writePNG(std::string filename, Picture data) {
-    const int width = data[0].size();
-    const int height = data.size();
+    int width = data[0].size();
+    int height = data.size();
 
     // Create a buffer for the pixel data
     unsigned char* image = new unsigned char[width * height * 4];  // RGBA format
 
-    // Fill the buffer with a solid red color
+    // Fill the data with the picture data
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             // Calculate the index of the current pixel
@@ -32,7 +32,7 @@ bool writePNG(std::string filename, Picture data) {
     // Save the image as a PNG file
     stbi_write_png(filename.c_str(), width, height, 4, image, width * 4);
 
-    delete[] image;  // Don't forget to free the allocated memory
+    delete[] image;  // free the allocated memory
 
     return 0;
 }

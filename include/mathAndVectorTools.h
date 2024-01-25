@@ -66,11 +66,11 @@ public:
 private:
 };
 
-float sqr(float x) { // just returns x^2
+double sqr(double x) { // just returns x^2
     return x * x;
 }
 
-float scalarProd(Vector3 a, Vector3 b) { // returns the scalar produkt of two vectors
+double scalarProd(Vector3 a, Vector3 b) { // returns the scalar produkt of two vectors
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
@@ -78,15 +78,15 @@ Vector3 crossProd(Vector3 a, Vector3 b) { // returns the normal vector of two ve
     return Vector3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, b.y * a.x - a.y * b.x);
 }
 
-float angleInRads(Vector3 a, Vector3 b) { // returns the angle between two vectors
+double angleInRads(Vector3 a, Vector3 b) { // returns the angle between two vectors
     return acos(scalarProd(a, b) / (a.magnitude() * b.magnitude()));
 }
 
-float det3x3(Matrix a) { // returns the determinat of a 3x3 Matrix
+double det3x3(Matrix a) { // returns the determinat of a 3x3 Matrix
     return a[0][0]*a[1][1]*a[2][2] + a[0][1]*a[1][2]*a[2][0] + a[0][2]*a[1][0]*a[2][1] - a[2][0]*a[1][1]*a[0][2] - a[2][1]*a[1][2]*a[0][0] - a[2][2]*a[1][0]*a[0][1];
 }
 
-float clamp(float min, float x, float max) { // clamps x between min and max
+double clamp(double min, double x, double max) { // clamps x between min and max
     if (x < min)
         return min;
     else if ( x > max)
@@ -94,7 +94,7 @@ float clamp(float min, float x, float max) { // clamps x between min and max
     return x;
 }
 
-float absolute(float x) { // returns the absolute of x (|x|)
+double absolute(double x) { // returns the absolute of x (|x|)
     if (x < 0)
         return -x;
     return x;
