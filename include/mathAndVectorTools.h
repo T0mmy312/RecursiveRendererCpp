@@ -67,6 +67,12 @@ public:
 private:
 };
 
+double absolute(double x) { // returns the absolute of x (|x|)
+    if (x < 0)
+        return -x;
+    return x;
+}
+
 class Quaternion
 {
 public:
@@ -144,9 +150,9 @@ public:
     Quaternion operator*(Quaternion other) { // Carefull order of multiplication is important
         Quaternion result;
         result.r = (r*other.r - i*other.i - j*other.j - k*other.k);
-        result.i = (r*other.r + i*other.i - j*other.j + k*other.k);
-        result.j = (r*other.r + i*other.i + j*other.j - k*other.k);
-        result.k = (r*other.r - i*other.i + j*other.j + k*other.k);
+        result.i = (r*other.i + i*other.r + j*other.k - k*other.j);
+        result.j = (r*other.j - i*other.k + j*other.r + k*other.i);
+        result.k = (r*other.k + i*other.j - j*other.i + k*other.r);
         return result;
     }
 };
@@ -187,12 +193,6 @@ double clamp(double min, double x, double max) { // clamps x between min and max
         return min;
     else if ( x > max)
         return max;
-    return x;
-}
-
-double absolute(double x) { // returns the absolute of x (|x|)
-    if (x < 0)
-        return -x;
     return x;
 }
 

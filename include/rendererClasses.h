@@ -384,6 +384,23 @@ private:
 };
 
 //? ----------------------------------------------------------------------------------------------------------------------------------
+//? Object Class
+//? ----------------------------------------------------------------------------------------------------------------------------------
+
+class Obj // represents an object in the polygons list with the start index and end index
+{
+public:
+    Obj(int _start = -1, int _end = -1) {
+        start = _start;
+        end = _end;
+    }
+    ~Obj() {}
+
+    int start; // start index of the Object
+    int end; // end index of the Object
+};
+
+//? ----------------------------------------------------------------------------------------------------------------------------------
 //? Renderer Class
 //? ----------------------------------------------------------------------------------------------------------------------------------
 
@@ -631,6 +648,8 @@ public:
             for (int x = 0; x < xPixls; x++)
             {
                 result[y][x] = preResult[y][x].color * ((preResult[y][x].intensity - minIntensity) / dif); // scales the color percentigewise between min and max
+                //! DON'T SCALE TO MIN ONLY MAX because the min intensity would be black.
+                // TODO: Fix that ^
                 //* Debug code start
                 //intensityGrayscale[y][x] = Color(255, 255, 255) * ((preResult[y][x].intensity - minIntensity) / dif); //creates a Grayscale Picture according to the intensity of each pixel
                 //* Debug code end
@@ -640,10 +659,15 @@ public:
         return result;
     }
 
-    void appendPolygons(std::vector<Polygon> polies) // simply appends a list of polygons to polygons (like from a cube funktion)
+    Obj appendPolygons(std::vector<Polygon> polies) // simply appends a list of polygons to polygons (like from a cube funktion)
     {
-        for (int i = 0; i < polies.size(); i++)
+        Obj ret;
+        ret.start = polygons.size() - 1;
+        int len = polies.size();
+        for (int i = 0; i < len; i++)
             polygons.push_back(polies[i]);
+        ret.end = polygons.size() - 1;
+        return ret;
     }
 };
 

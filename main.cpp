@@ -5,11 +5,13 @@
 
 int main()
 {
-    std::vector<Polygon> polies = cube(Vector3(), Vector3(1, 1, 1), Color(255, 255, 255), 2, 2, 2);
-    std::vector<Light> lights = {Light(Vector3(0, -1, 6), Color(0, 150, 0), 5, 2)};
+    std::vector<Polygon> polies = cube(Vector3(), Vector3(1, 1, 1), Color(127, 127, 127), 2, 2, 2);
+    std::vector<Light> lights = {Light(Vector3(0, -1, 6), Color(0, 255, 0), 40, 2)};
     Skybox sky(Vector3(0, 0, 0), Color(0, 191, 255), 100, 10);
-    Renderer renderer(polies, lights, sky, Color(30, 30, 30), Vector3(0, -5, 0), Vector3(0, 0.1, 0), 400, 300, 1, 3, 2, 1);
+    Renderer renderer({}, lights, sky, Color(30, 30, 30), Vector3(0, -5, 0), Vector3(0, 0.1, 0), 200, 150, 1, 3, 2, 1);
+    Obj cub = renderer.appendPolygons(polies);
 
+    /*
     // output for testing
     std::ofstream file("intersectionTest.txt");
 
@@ -53,6 +55,7 @@ int main()
     }
     file << sky.radius<<"^2 = (x - "<<sky.position.x<<")^2 + (y - "<<sky.position.y<<")^2 + (z - "<<sky.position.z<<")^2";
     file.close();
+    */
 
     writePNG("result.png", renderer.render());
     //writePNG("intensityGrayscale.png", renderer.intensityGrayscale);
