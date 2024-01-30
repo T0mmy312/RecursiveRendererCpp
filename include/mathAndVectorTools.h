@@ -14,6 +14,7 @@
 #define PI 3.14159265359f
 #define DEG_TO_RAD 0.0174532925199f
 #define RAD_TO_DEG 57.2957795131f
+#define FLOAT_COMP_DIF 0.000001f // the difference needed for to floats to be thae same in a comparison
 
 typedef std::vector<std::vector<float>> Matrix;
 
@@ -65,6 +66,101 @@ public:
 
 private:
 };
+
+class Quaternion
+{
+public:
+    Quaternion(float _r = 1, float _i = 0, float _j = 0, float _k = 0) {
+        r = _r;
+        i = _i;
+        j = _j;
+        k = _k;
+    }
+    ~Quaternion() {}
+
+    float r; // real component
+    float i; // first imaginary component
+    float j; // second imaginary component
+    float k; // third imaginary component
+
+    void print() {
+        std::cout << "q = "<<r<<" + "<<i<<"i + "<<j<<"j + "<<k<<"k";
+    }
+
+    float magnitude() { // returns the lenght of the Quaternion
+        return sqrt(r*r + i*i + j*j + k*k);
+    }
+
+    Quaternion inverse() { // returns the inverse of the Quaternion
+        return Quaternion(r, -i, -j, -k);
+    }
+
+    Vector3 eulerAnglesRad() { // angles roll, pitch and yaw in radians
+        Vector3 eulerAngles;
+        eulerAngles.y = asin(2 * (r * j - i * k));
+        if (absolute(eulerAngles.y - PI/2) <= FLOAT_COMP_DIF)
+            return Vector3(0, eulerAngles.y, -2*atan2(i, r));
+        else if (abs(eulerAngles.y + PI/2) <= FLOAT_COMP_DIF)
+            return Vector3(0, eulerAngles.y, 2*atan2(i, r));
+        eulerAngles.x = atan2(2 * (r * i + j * k), r*r - i*i - j*j - k*k);
+        eulerAngles.z = atan2(2 * (r * k + i * j), r*r + i*i + j*j + k*k);
+        return eulerAngles;
+    }
+    Vector3 eulerAnglesDeg() { // angles roll, pitch and yaw in degrees
+        return eulerAnglesRad() * RAD_TO_DEG;
+    }
+
+    void setEulerAnglesRad(Vector3 eulerInRad) { // x roll, y pitch, z yaw
+        float cx = cos(eulerInRad.x / 2);
+        float cy = cos(eulerInRad.y / 2);
+        float cz = cos(eulerInRad.z / 2);
+        float sx = sin(eulerInRad.x / 2);
+        float sy = sin(eulerInRad.y / 2);
+        float sz = sin(eulerInRad.z / 2);
+        r = cx * cy * cz + sx * sy * sz;
+        i = sx * cy * cz + cx * sy * sz;
+        j = cx * sy * cz + sx * cy * sz;
+        k = cx * cy * sz + sx * sy * cz;
+    }
+    void setEulerAnglesDeg(Vector3 eulerInDeg) { // x roll, y pitch, z yaw
+        setEulerAnglesRad(eulerInDeg * DEG_TO_RAD);
+    }
+
+    void setAxisRotationRad(Vector3 axis, float rotationInRad) { // rotaion around a axis to Quaternion
+        float hr = rotationInRad / 2;
+        r = cos(hr);
+        i = axis.x * sin(hr);
+        j = axis.y * sin(hr);
+        k = axis.z * sin(hr);
+    }
+    void setAxisRotationDeg(Vector3 axis, float rotationInDeg) { // rotaion around a axis to Quaternion
+        setAxisRotationRad(axis, rotationInDeg * DEG_TO_RAD);
+    }
+
+    void operator=(Vector3 eulerInRad) { // x roll, y pitch, z yaw
+       setEulerAnglesDeg(eulerInRad);
+    }
+
+    Quaternion operator*(Quaternion other) { // Carefull order of multiplication is important
+        Quaternion result;
+        result.r = (r*other.r - i*other.i - j*other.j - k*other.k);
+        result.i = (r*other.r + i*other.i - j*other.j + k*other.k);
+        result.j = (r*other.r + i*other.i + j*other.j - k*other.k);
+        result.k = (r*other.r - i*other.i + j*other.j + k*other.k);
+        return result;
+    }
+};
+
+Vector3 rotateActive(Vector3 point, Quaternion rotation) { // Point is rotated with respect to the coordinate system
+    Quaternion p(0, point.x, point.y, point.z); // Quaternion representation of the Point
+    Quaternion pRes = rotation.inverse() * p * rotation; // pRes.i, pRes.j and pRes.k are the x, y and z of the rotated point
+    return Vector3(pRes.i, pRes.j, pRes.k);
+}
+Vector3 rotatePassive(Vector3 point, Quaternion rotation) { // The coordinate system is rotated with respect to the Point
+    Quaternion p(0, point.x, point.y, point.z); // Quaternion representation of the Point
+    Quaternion pRes = rotation * p * rotation.inverse(); // pRes.i, pRes.j and pRes.k are the x, y and z of the rotated point
+    return Vector3(pRes.i, pRes.j, pRes.k);
+}
 
 double sqr(double x) { // just returns x^2
     return x * x;

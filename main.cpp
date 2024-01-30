@@ -5,59 +5,56 @@
 
 int main()
 {
-    std::ofstream file("intersectionTest.txt");
-
-    std::string expr = "s = [";
-    for (float i = 0; i < 1; i+= 0.01)
-        expr += std::to_string(i) + ",";
-    expr += "1]";
-    file << expr << std::endl;
-
-    std::vector<Polygon> polies = cube(Vector3(), Vector3(1, 1, 1), Color(255, 255, 255), 1, 1, 1);
-    std::vector<Light> lights = {Light(Vector3(0, 1, 3), Color(), 1000)};
-    Skybox sky(Vector3(0, 0, 0), Color(0, 191, 255), 1000, 1000);
-    Renderer renderer(polies, lights, sky, Color(30, 30, 30), Vector3(0, -5, 0), Vector3(0, 0.01f, 0), 200, 150, 1, 3, 2, 0.2f);
-    Ray r = Ray(renderer.c, Vector3(0, 1, 0));
-    intersectionData data = renderer.rayCast(r);
+    std::vector<Polygon> polies = cube(Vector3(), Vector3(1, 1, 1), Color(255, 255, 255), 2, 2, 2);
+    std::vector<Light> lights = {Light(Vector3(0, -1, 6), Color(0, 150, 0), 5, 2)};
+    Skybox sky(Vector3(0, 0, 0), Color(0, 191, 255), 100, 10);
+    Renderer renderer(polies, lights, sky, Color(30, 30, 30), Vector3(0, -5, 0), Vector3(0, 0.1, 0), 400, 300, 1, 3, 2, 1);
 
     // output for testing
-    std::cout << "Ray: ";
-    r.print();
-    file << "X = (" << r.op.x << "," << r.op.y << "," << r.op.z << ") + (" << r.a.x << "," << r.a.y << "," << r.a.z << ") * t" << std::endl;
-    for (int i = 0; i < polies.size(); i++)
-        file << "X_{" << i << "} = ("<<polies[i].op.x<<","<<polies[i].op.y<<","<<polies[i].op.z<<") + ("<<polies[i].a.x<<","<<polies[i].a.y<<","<<polies[i].a.z<<") * t + ("<<polies[i].b.x<<","<<polies[i].b.y<<","<<polies[i].b.z<<") * s {t+s<=1}{t>=0}{s>=0}" << std::endl;
-    file << sky.radius<<"^2 = (x - "<<sky.position.x<<")^2 + (y - "<<sky.position.y<<")^2 + (z - "<<sky.position.z<<")^2" << std::endl;
-    if (data.valid)
-        file << "S = ("<<data.point.x<<","<<data.point.y<<","<<data.point.z<<")" << std::endl;
-    if (data.valid) {
-        if (data.shapeID == POLYGON_ID) {
-            std::cout << ", Polygon: ";
-            renderer.polygons[data.i].print();
-            std::cout << ", intersection Point: ";
-            data.point.print();
-            std::cout << std::endl;
-            Ray ref = renderer.reflect(r, data);
-            file << "X_r = ("<<ref.op.x<<","<<ref.op.y<<","<<ref.op.z<<") + ("<<ref.a.x<<","<<ref.a.y<<","<<ref.a.z<<") * t" << std::endl;;
-        }
-        else
-        {
-            std::cout << ", Sphere: ";
-            renderer.spheres[data.i].print();
-            std::cout << ", intersection Point: ";
-            data.point.print();
-            std::cout << std::endl;
+    std::ofstream file("intersectionTest.txt");
+
+    Vector3 cf = renderer.c + renderer.f;
+    file << "\\operatorname{vector}(("<<renderer.c.x<<","<<renderer.c.y<<","<<renderer.c.z<<"),("<<cf.x<<","<<cf.y<<","<<cf.z<<"))" << std::endl;
+    Vector3 fx = crossProd(renderer.f, Vector3(0, 0, 1)).normalized();
+    Vector3 fy = crossProd(fx, renderer.f).normalized() * -1;
+    float pixToM = renderer.xSize / renderer.xPixls;
+    //file << "s = [";
+    std::vector<Ray> rays = {};
+    for (int y = 0; y < renderer.yPixls; y++) {
+        for (int x = 0; x < renderer.xPixls; x++) {
+            Vector3 op = renderer.c + renderer.f + fx * (x - (renderer.xPixls/2) + 0.5) * pixToM + fy * (y - (renderer.yPixls/2) + 0.5) * pixToM; // finds the global position of the x, y Pixel
+            rays.push_back(Ray(op, op - renderer.c));
+            //file << "("<<op.x<<","<<op.y<<","<<op.z<<")";
+            //if (y != renderer.yPixls - 1 || x != renderer.xPixls - 1)
+            //    file << ",";
         }
     }
-    else
-    {
-        std::cout << " intersected with nothing" << std::endl;
+    //file << "]" << std::endl;
+
+    for (int i = 0; i < rays.size(); i++) {
+        intersectionData rayCast = renderer.rayCast(rays[i]);
+        Vector3 end;
+        if (!rayCast.valid) {
+            end = rays[i].op + rays[i].a * 5;
+            file << "\\operatorname{vector}(("<<rays[i].op.x<<","<<rays[i].op.y<<","<<rays[i].op.z<<"),("<<end.x<<","<<end.y<<","<<end.y<<"))" << std::endl;
+            continue;
+        }
+        end = rays[i].op + rays[i].a * rayCast.t;
+        file << "\\operatorname{vector}(("<<rays[i].op.x<<","<<rays[i].op.y<<","<<rays[i].op.z<<"),("<<end.x<<","<<end.y<<","<<end.y<<"))" << std::endl;
+        Ray ref = renderer.reflect(rays[i], rayCast);
+        end = ref.op + ref.a * 5;
+        file << "\\operatorname{vector}(("<<ref.op.x<<","<<ref.op.y<<","<<ref.op.z<<"),("<<end.x<<","<<end.y<<","<<end.y<<"))" << std::endl;
     }
+    file << lights[0].radius<<"^2 = (x - "<<lights[0].position.x<<")^2 + (y - "<<lights[0].position.y<<")^2 + (z - "<<lights[0].position.z<<")^2" << std::endl;
+    for (int i = 0; i < polies.size(); i++) {
+        Vector3 p1 = polies[i].op + polies[i].a;
+        Vector3 p2 = polies[i].op + polies[i].b;
+        file << "\\operatorname{triangle}(("<<polies[i].op.x<<","<<polies[i].op.y<<","<<polies[i].op.z<<"),("<<p1.x<<","<<p1.y<<","<<p1.z<<"),("<<p2.x<<","<<p2.y<<","<<p2.z<<"))" << std::endl;
+    }
+    file << sky.radius<<"^2 = (x - "<<sky.position.x<<")^2 + (y - "<<sky.position.y<<")^2 + (z - "<<sky.position.z<<")^2";
     file.close();
 
     writePNG("result.png", renderer.render());
+    //writePNG("intensityGrayscale.png", renderer.intensityGrayscale);
     std::cout << "render completed!" << std::endl;
-    /*
-    writePNG("C:/Users/Thomas Shuttleworth/Desktop/RecursiveRendererCpp/result.png", renderer.result);
-    std::cout << "finished!" << std::endl;
-    */
 }

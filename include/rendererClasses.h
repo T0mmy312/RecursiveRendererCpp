@@ -494,7 +494,7 @@ private:
             cb += rayData.lightVals.color.b * mulVal; // adds to the blue value with the desired weighting of this ray
         }
 
-        return RecursiveReturnData(scai(Color(cr, cg, cb)/*- (Color(255, 255, 255) - polygons[mainRay.i].color)*/, intensity), distance + (mainRay.point - g.op).magnitude()); // returns the data collected from the other return values
+        return RecursiveReturnData(scai(Color(cr, cg, cb) /*dont know if this is clever*/ - (Color(255, 255, 255) - polygons[mainRay.i].color) /*End of maybe not clever code*/, intensity), distance + (mainRay.point - g.op).magnitude()); // returns the data collected from the other return values
     }
 
 public:
@@ -522,7 +522,6 @@ public:
     std::vector<Sphere> spheres; // all spheres in the scene
     std::vector<Light> lights; // all Lights in the scene
     Skybox skybox = Skybox(); // the skybox
-    // TODO: implement skybox
 
     Color defaultBackgroundColor; // the defaut color when the ray doesn't hit anything
     float defaultBackgroundIntensity; // the default intensity when the ray doesn't hit anything
@@ -541,6 +540,9 @@ public:
     float xSize; // x size of the screen in world space
 
     Picture result; // the resulting picture of the render
+    //* Debug code
+    //Picture intensityGrayscale;
+    //* end of Debug code
 
     Picture render() // renders the Polygons and stores the pixl values in the result var and returns that
     {
@@ -563,11 +565,11 @@ public:
         float hsy = yPixls / 2; // half of the y Pixls
 
         Vector3 fx; // the x Vector of the screens global position and rotation
-        if (f.x == 0 && f.y == 1 && f.y == 0)
-            fx = Vector3(1, 0, 0);
+        if (f.x == 0 && f.y == 0 && f.z == 1)
+            fx = Vector3(0, 1, 0);
         else
             fx = crossProd(f, Vector3(0, 0, 1)).normalized();
-        Vector3 fy = crossProd(f, fx).normalized(); // the x Vector of the screens global position and rotation
+        Vector3 fy = crossProd(f, fx).normalized() * -1; // the x Vector of the screens global position and rotation
 
         Vector3 fn = f.normalized(); // normalized vector f
 
@@ -582,10 +584,13 @@ public:
                 float lx = (x - hsx + addX) * pixToM; // lenght of fx needed to get to point
                 float ly = (y - hsy + addY) * pixToM; // lenght of fy needed to get to point
 
-                Vector3 op = c + fx * lx + fy * ly; // finds the global position of the x, y Pixel
+                Vector3 op = c + f + fx * lx + fy * ly; // finds the global position of the x, y Pixel
 
                 Vector3 copn = (c - op).normalized(); // normalized vector going from the camera position to the Pixel Position
+                Vector3 a = copn; //* simplified version without refraction for debuging
+                /*//* commenting out for Debug resons
                 Vector3 a = fn + (fn - copn * scalarProd(copn, fn)) * refraction; // direction Vector of the initial Ray according to refraction
+                *///* end of debug out commenting
                 // sidenote: scalarProd(copn, fn) is the cos of the angle between the two vectors, because |copn| = |fn| = 1 (makes it slightly more efficient)
 
                 Ray g(op, a); // declares the Ray
@@ -609,20 +614,26 @@ public:
                 //* debuging code over
             }
         }
-
-        /*//*
+        /*
         if (minIntensity == 999999999 || maxIntensity == -999999999) // returns an Error if the Intensity probably wasn't calculated correctly
         {
             std::cout << "Could not render (probably an Error with Light intensity)!" << std::endl;
             return Picture();
         }
-        *///*
+        */
+        //* Debug code start
+        //intensityGrayscale = Picture(yPixls, std::vector<Color>(yPixls, Color(0, 0, 0)));        
+        //* Debug code end
+
         double dif = maxIntensity - minIntensity; // calculates the diference between min and max
         for (int y = 0; y < yPixls; y++)
         {
             for (int x = 0; x < xPixls; x++)
             {
                 result[y][x] = preResult[y][x].color * ((preResult[y][x].intensity - minIntensity) / dif); // scales the color percentigewise between min and max
+                //* Debug code start
+                //intensityGrayscale[y][x] = Color(255, 255, 255) * ((preResult[y][x].intensity - minIntensity) / dif); //creates a Grayscale Picture according to the intensity of each pixel
+                //* Debug code end
             }
         }
 

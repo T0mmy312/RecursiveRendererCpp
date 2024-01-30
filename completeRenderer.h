@@ -256,7 +256,7 @@ public:
         return Vector3(op.x + t * a.x + s * b.x, op.y + t * a.y + s * b.y, op.z + t * a.z + s * b.z);
     }
     Vector3 normalVector() { // returns the normal Vector to this polygon
-        return scalarProd(a, b);
+        return crossProd(a, b);
     }
     void print() {
         std::cout << "(e: X = ";
@@ -417,6 +417,8 @@ public:
 private:
 };
 
+//! Add Light Polygon
+
 //? ----------------------------------------------------------------------------------------------------------------------------------
 //? skybox Class
 //? ----------------------------------------------------------------------------------------------------------------------------------
@@ -529,18 +531,6 @@ public:
         return nearest; // returns the nearest intersection
     }
 
-private:
-    int LightIntersect(Ray g) // returns a valid index in lights if the ray has hit a light else -1
-    {
-        for (int i = 0; i < lights.size(); i++) // loops through all Lights
-        {
-            Vector3 opp = lights[i].position - g.op; // calculates the vector between the origin of the ray and the light
-            if (opp.magnitude() * tan(angleInRads(g.a, opp)) < lights[i].radius) // if the lenght of the opposite side is shorter then the radius of the Light
-                return i; // returns the index of the Light
-        }
-        return -1; // not intersecting with a light
-    }
-
     Ray reflect(Ray g, intersectionData data) // calculates the perfect reflected ray of a surface
     {
         Ray ret(data.point); // sets a default invalid returns ray where the directional vector a of ret is (0, 0, 0)
@@ -553,12 +543,26 @@ private:
         else if (data.shapeID == SPHERE_ID) // checks if it is a sphere
             nn = spheres[data.i].normalVector(data.point).normalized(); // calculates the normalized normal vector of that intersection point on that sphere
         float alpha = angleInRads(nn, g.a * -1); // calculates the angle between the normalized normal vector and the reversed a vector
-        if (alpha > 1.57079632679) // checks if the angle between the normal vector and the reversed a vector is more then 90° (in radians) 
+        if (alpha > 1.57079632679) { // checks if the angle between the normal vector and the reversed a vector is more then 90° (in radians) 
             nn = nn * -1; // reverses the normalized normal vector
+            alpha = PI - alpha;
+        }
         Vector3 an = g.a * cos(alpha) * -1; // calculates the reverse and lenght adjusted vector an
         Vector3 nt = nn - an; // calculates the vector between the normal vector and the an vector
         ret.a = nn + nt; // calculates the outgoing a vector of the reflection
         return ret; // returns ret
+    }
+
+private:
+    int LightIntersect(Ray g) // returns a valid index in lights if the ray has hit a light else -1
+    {
+        for (int i = 0; i < lights.size(); i++) // loops through all Lights
+        {
+            Vector3 opp = lights[i].position - g.op; // calculates the vector between the origin of the ray and the light
+            if (opp.magnitude() * tan(angleInRads(g.a, opp)) < lights[i].radius) // if the lenght of the opposite side is shorter then the radius of the Light
+                return i; // returns the index of the Light
+        }
+        return -1; // not intersecting with a light
     }
 
     RecursiveReturnData recursvieRay(Ray g, int bounces, int except = -1, int except_shape_id = -1) // fires a light ray that then bounces and sents splits more rays out that do the same until it reaces a light
@@ -607,7 +611,7 @@ private:
             cb += rayData.lightVals.color.b * mulVal; // adds to the blue value with the desired weighting of this ray
         }
 
-        return RecursiveReturnData(scai(Color(cr, cg, cb)/*- (Color(255, 255, 255) - polygons[mainRay.i].color)*/, intensity), distance + (mainRay.point - g.op).magnitude()); // returns the data collected from the other return values
+        return RecursiveReturnData(scai(Color(cr, cg, cb) /*dont know if this is clever*/ - (Color(255, 255, 255) - polygons[mainRay.i].color) /*End of maybe not clever code*/, intensity), distance + (mainRay.point - g.op).magnitude()); // returns the data collected from the other return values
     }
 
 public:
@@ -635,7 +639,6 @@ public:
     std::vector<Sphere> spheres; // all spheres in the scene
     std::vector<Light> lights; // all Lights in the scene
     Skybox skybox = Skybox(); // the skybox
-    // TODO: implement skybox
 
     Color defaultBackgroundColor; // the defaut color when the ray doesn't hit anything
     float defaultBackgroundIntensity; // the default intensity when the ray doesn't hit anything
@@ -676,11 +679,11 @@ public:
         float hsy = yPixls / 2; // half of the y Pixls
 
         Vector3 fx; // the x Vector of the screens global position and rotation
-        if (f.x == 0 && f.y == 1 && f.y == 0)
-            fx = Vector3(1, 0, 0);
+        if (f.x == 0 && f.y == 0 && f.z == 1)
+            fx = Vector3(0, 1, 0);
         else
             fx = crossProd(f, Vector3(0, 0, 1)).normalized();
-        Vector3 fy = crossProd(f, fx).normalized(); // the x Vector of the screens global position and rotation
+        Vector3 fy = crossProd(f, fx).normalized() * -1; // the x Vector of the screens global position and rotation
 
         Vector3 fn = f.normalized(); // normalized vector f
 
@@ -695,10 +698,13 @@ public:
                 float lx = (x - hsx + addX) * pixToM; // lenght of fx needed to get to point
                 float ly = (y - hsy + addY) * pixToM; // lenght of fy needed to get to point
 
-                Vector3 op = c + fx * lx + fy * ly; // finds the global position of the x, y Pixel
+                Vector3 op = c + f + fx * lx + fy * ly; // finds the global position of the x, y Pixel
 
                 Vector3 copn = (c - op).normalized(); // normalized vector going from the camera position to the Pixel Position
+                Vector3 a = copn; //* simplified version without refraction for debuging
+                /*//* commenting out for Debug resons
                 Vector3 a = fn + (fn - copn * scalarProd(copn, fn)) * refraction; // direction Vector of the initial Ray according to refraction
+                *///* end of debug out commenting
                 // sidenote: scalarProd(copn, fn) is the cos of the angle between the two vectors, because |copn| = |fn| = 1 (makes it slightly more efficient)
 
                 Ray g(op, a); // declares the Ray
@@ -716,9 +722,9 @@ public:
                 
                 //* adds the intensity data to intensityMatrixResult.txt for debuging resons
                 if (x != xPixls - 1)
-                    std::fprintf(debug, "%d, ", preResult[y][x].intensity);
+                    std::fprintf(debug, "%f, ", preResult[y][x].intensity);
                 else
-                    std::fprintf(debug, "%d\n", preResult[y][x].intensity);
+                    std::fprintf(debug, "%f\n", preResult[y][x].intensity);
                 //* debuging code over
             }
         }
