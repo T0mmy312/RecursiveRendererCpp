@@ -121,11 +121,12 @@ public:
 class Polygon
 {
 public:
-    Polygon(Vector3 _op, Vector3 _a, Vector3 _b, Color _color){
+    Polygon(Vector3 _op, Vector3 _a, Vector3 _b, Color _color, float _scatter = 1){
         op = _op;
         a = _a;
         b = _b;
         color = _color;
+        scatter = _scatter;
     }
     ~Polygon() {}
 
@@ -490,11 +491,23 @@ private:
 
         Ray newRay = reflect(g, mainRay); // reflects the the rayCast Ray
         RecursiveReturnData newRayData = recursvieRay(newRay, bounces + 1, mainRay.i, mainRay.shapeID); // creates a new recursvieRay with the reflected Ray
-        double intensity = newRayData.lightVals.intensity * 0.5f; // calculates the intensity with a weighting of 50% for this return value
-        long double distance = newRayData.distance * 0.5f; // calculates the distance with a weighting of 50% for this return value
-        cr += newRayData.lightVals.color.r * 0.5f; // calculates the red value with a weighting of 50% for this return value
-        cg += newRayData.lightVals.color.g * 0.5f; // calculates the green value with a weighting of 50% for this return value
-        cb += newRayData.lightVals.color.b * 0.5f; // calculates the blue value with a weighting of 50% for this return value
+        double intensity;
+        long double distance;
+        if (splits != 1) {
+            double intensity = newRayData.lightVals.intensity * 0.5f; // calculates the intensity with a weighting of 50% for this return value
+            long double distance = newRayData.distance * 0.5f; // calculates the distance with a weighting of 50% for this return value
+            cr += newRayData.lightVals.color.r * 0.5f; // calculates the red value with a weighting of 50% for this return value
+            cg += newRayData.lightVals.color.g * 0.5f; // calculates the green value with a weighting of 50% for this return value
+            cb += newRayData.lightVals.color.b * 0.5f; // calculates the blue value with a weighting of 50% for this return value
+        }
+        else {
+            double intensity = newRayData.lightVals.intensity; // calculates the intensity with a weighting of 100% for this return value
+            long double distance = newRayData.distance; // calculates the distance with a weighting of 100% for this return value
+            cr += newRayData.lightVals.color.r; // calculates the red value with a weighting of 100% for this return value
+            cg += newRayData.lightVals.color.g; // calculates the green value with a weighting of 100% for this return value
+            cb += newRayData.lightVals.color.b; // calculates the blue value with a weighting of 100% for this return value
+        }
+        
 
         int mulVal = 0.5f / (splits - 1); // calculates the weighting for the next rays
 
@@ -591,7 +604,6 @@ public:
         Vector3 fn = f.normalized(); // normalized vector f
 
         iMatrix preResult(yPixls, std::vector<scai>(xPixls, scai()));
-        double minIntensity = 999999999;
         double maxIntensity = -999999999;
         
         for (int y = 0; y < yPixls; y++)
@@ -614,13 +626,11 @@ public:
                 RecursiveReturnData retData = recursvieRay(g, 0); // gets the recursive return data
                 preResult[y][x] = scai(retData.lightVals.color, 1 / pow(retData.distance + (1 / sqrt(retData.lightVals.intensity)), 2));
                 // this "1 / pow(retData.distance + (1 / sqrt(retData.lightVals.intensity)), 2)" calculates the intensity for retData.distance where if the distance where 0 the intensity would be retData.lightVals.intensity
-                if (preResult[y][x].intensity < minIntensity)
-                    minIntensity = preResult[y][x].intensity;
-                else if (preResult[y][x].intensity > maxIntensity)
+                if (preResult[y][x].intensity > maxIntensity)
                     maxIntensity = preResult[y][x].intensity;
 
                 //* debug code
-                std::cout << minIntensity << ", " << maxIntensity << std::endl;
+                std::cout << maxIntensity << std::endl;
                 //* end of debug code
                 
                 //* adds the intensity data to intensityMatrixResult.txt for debuging resons
@@ -642,14 +652,11 @@ public:
         //intensityGrayscale = Picture(yPixls, std::vector<Color>(yPixls, Color(0, 0, 0)));        
         //* Debug code end
 
-        double dif = maxIntensity - minIntensity; // calculates the diference between min and max
         for (int y = 0; y < yPixls; y++)
         {
             for (int x = 0; x < xPixls; x++)
             {
-                result[y][x] = preResult[y][x].color * ((preResult[y][x].intensity - minIntensity) / dif); // scales the color percentigewise between min and max
-                //! DON'T SCALE TO MIN ONLY MAX because the min intensity would be black.
-                // TODO: Fix that ^
+                result[y][x] = preResult[y][x].color * (preResult[y][x].intensity / maxIntensity); // scales the intensity according to max
                 //* Debug code start
                 //intensityGrayscale[y][x] = Color(255, 255, 255) * ((preResult[y][x].intensity - minIntensity) / dif); //creates a Grayscale Picture according to the intensity of each pixel
                 //* Debug code end

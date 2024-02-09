@@ -9,7 +9,7 @@
 //? Tools for easier Scene building
 //? ----------------------------------------------------------------------------------------------------------------------------------
 
-std::vector<Polygon> cube(Vector3 pos, Vector3 dir, Color color, float sx, float sy, float sz) // adds needed Polygons to get a cube a the position pos with side lenghts of sx, sy, sz and directin dir in Renderer renderer (returns from where to wher the Polygons are)
+std::vector<Polygon> cube(Vector3 pos, Vector3 dir, Color color, float sx, float sy, float sz, float scatter) // adds needed Polygons to get a cube a the position pos with side lenghts of sx, sy, sz and directin dir in Renderer renderer (returns from where to wher the Polygons are)
 {
     std::vector<Polygon> ret;
     
@@ -41,18 +41,18 @@ std::vector<Polygon> cube(Vector3 pos, Vector3 dir, Color color, float sx, float
     Vector3 tfl = rx * hsx - ry * hsy + rz * hsz; // top front left corner of the cube
     Vector3 tbl = rx * -hsx - ry * hsy + rz * hsz; // top back left corner of the cube
 
-    ret.push_back(Polygon(bfl, bfr - bfl, bbl - bfl, color));
-    ret.push_back(Polygon(bbr, bfr - bbr, bbl - bbr, color));
-    ret.push_back(Polygon(bbl, tbl - bbl, bbr - bbl, color));
-    ret.push_back(Polygon(tbr, tbl - tbr, bbr - tbr, color));
-    ret.push_back(Polygon(tbr, bbr - tbr, tfr - tbr, color));
-    ret.push_back(Polygon(bfr, bbr - bfr, tfr - bfr, color));
-    ret.push_back(Polygon(tfr, tfl - tfr, bfr - tfr, color));
-    ret.push_back(Polygon(bfl, tfl - bfl, bfr - bfl, color));
-    ret.push_back(Polygon(bfl, tfl - bfl, bbl - bfl, color));
-    ret.push_back(Polygon(tbl, tfl - tbl, bbl - tbl, color));
-    ret.push_back(Polygon(tfl, tbl - tfl, tfr - tfl, color));
-    ret.push_back(Polygon(tbr, tfr - tbr, tbl - tbr, color));
+    ret.push_back(Polygon(bfl, bfr - bfl, bbl - bfl, color, scatter));
+    ret.push_back(Polygon(bbr, bfr - bbr, bbl - bbr, color, scatter));
+    ret.push_back(Polygon(bbl, tbl - bbl, bbr - bbl, color, scatter));
+    ret.push_back(Polygon(tbr, tbl - tbr, bbr - tbr, color, scatter));
+    ret.push_back(Polygon(tbr, bbr - tbr, tfr - tbr, color, scatter));
+    ret.push_back(Polygon(bfr, bbr - bfr, tfr - bfr, color, scatter));
+    ret.push_back(Polygon(tfr, tfl - tfr, bfr - tfr, color, scatter));
+    ret.push_back(Polygon(bfl, tfl - bfl, bfr - bfl, color, scatter));
+    ret.push_back(Polygon(bfl, tfl - bfl, bbl - bfl, color, scatter));
+    ret.push_back(Polygon(tbl, tfl - tbl, bbl - tbl, color, scatter));
+    ret.push_back(Polygon(tfl, tbl - tfl, tfr - tfl, color, scatter));
+    ret.push_back(Polygon(tbr, tfr - tbr, tbl - tbr, color, scatter));
 
     return ret;
 }
